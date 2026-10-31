@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10182e">
+  <title>Kanat Peşinde — Mini Flappy</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f6f6ff;
+      --muted: #aeb8d1;
+      --mint: #b8ff73;
+      --purple: #a78bfa;
+      --panel: rgba(22, 31, 55, .92);
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; }
+    body {
+      min-height: 100svh;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      font-family: ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+      background: #10182e;
+      background-image:
+        radial-gradient(ellipse at 14% 18%, rgba(95, 112, 202, .22), transparent 30%),
+        radial-gradient(ellipse at 88% 85%, rgba(123, 79, 174, .19), transparent 32%),
+        linear-gradient(145deg, #111a32 0%, #171b37 52%, #10172b 100%);
+    }
+    button { font: inherit; }
+    .app {
+      width: min(100vw, 1120px);
+      height: min(100svh, 920px);
+      padding: 22px 30px;
+      display: grid;
+      grid-template-columns: minmax(200px, 1fr) minmax(280px, 420px) minmax(200px, 1fr);
+      align-items: center;
+      gap: clamp(18px, 4vw, 56px);
+    }
+    .side-note { max-width: 250px; color: var(--muted); align-self: center; }
+    .brand { color: var(--mint); font-size: 12px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+    .side-note h1 { margin: 12px 0 14px; color: #fff; font-size: clamp(28px, 4vw, 43px); line-height: .98; letter-spacing: -.05em; }
+    .side-note p { max-width: 230px; margin: 0; font-size: 14px; line-height: 1.65; }
+    .tip { margin-top: 24px; padding: 13px 14px; border: 1px solid rgba(195, 205, 255, .13); border-radius: 16px; background: rgba(255,255,255,.045); font-size: 12px; line-height: 1.5; }
+    .tip b { color: #fff; }
+    .right-note { justify-self: end; text-align: right; }
+    .score-card { display: inline-block; min-width: 168px; padding: 16px 18px; text-align: left; border: 1px solid rgba(195,205,255,.14); border-radius: 18px; background: rgba(255,255,255,.045); box-shadow: 0 12px 40px rgba(0,0,0,.12); }
+    .score-card span { display: block; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .score-card strong { display: block; margin-top: 4px; font-size: 31px; line-height: 1; }
+    .bird-badge { margin-top: 28px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .bird-badge img { width: 68px; height: 68px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 9px 12px rgba(0,0,0,.25)); }
+    .game-shell {
+      position: relative;
+      width: min(100%, 420px);
+      aspect-ratio: 420 / 740;
+      max-height: calc(100svh - 32px);
+      justify-self: center;
+      overflow: hidden;
+      border: 1px solid rgba(220, 230, 255, .24);
+      border-radius: 26px;
+      background: #88d7ed;
+      box-shadow: 0 34px 100px rgba(0,0,0,.46), 0 0 0 7px rgba(255,255,255,.025), inset 0 1px rgba(255,255,255,.5);
+      isolation: isolate;
+    }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; image-rendering: pixelated; }
+    .pause-button {
+      position: absolute; z-index: 3; top: max(14px, env(safe-area-inset-top)); left: 14px;
+      width: 42px; height: 42px; display: grid; place-items: center;
+      border: 1px solid rgba(255,255,255,.62); border-radius: 14px;
+      color: #fff; background: rgba(28, 50, 85, .38); backdrop-filter: blur(10px);
+      cursor: pointer; box-shadow: 0 4px 14px rgba(19, 49, 82, .18); transition: .18s ease;
+    }
+    .pause-button:hover { transform: translateY(-2px); background: rgba(28, 50, 85, .58); }
+    .pause-button svg { width: 19px; height: 19px; fill: currentColor; }
+    .overlay {
+      position: absolute; z-index: 2; inset: 0; display: grid; place-items: center;
+      padding: 24px; background: rgba(11, 20, 42, .22); backdrop-filter: blur(3px);
+    }
+    .overlay[hidden] { display: none; }
+    .menu-card {
+      width: min(100%, 330px); max-height: 100%; overflow: auto;
+      padding: 26px 25px 22px; border: 1px solid rgba(255,255,255,.23); border-radius: 25px;
+      text-align: center; background: linear-gradient(160deg, rgba(33, 44, 75, .97), rgba(22, 29, 54, .97));
+      box-shadow: 0 24px 70px rgba(5, 14, 35, .42), inset 0 1px rgba(255,255,255,.08);
+      animation: card-in .26s cubic-bezier(.2,.85,.25,1) both;
+    }
+    @keyframes card-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+    .menu-kicker { color: var(--mint); font-size: 10px; font-weight: 900; letter-spacing: .22em; text-transform: uppercase; }
+    .menu-bird { width: 90px; height: 90px; margin: -3px auto 4px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 10px 9px rgba(0,0,0,.24)); }
+    .menu-card h2 { margin: 4px 0 8px; font-size: 27px; line-height: 1.08; letter-spacing: -.035em; }
+    .menu-card .subcopy { margin: 0 auto 19px; max-width: 245px; color: #b6c0d8; font-size: 13px; line-height: 1.5; }
+    .menu-actions { display: grid; gap: 9px; }
+    .menu-actions button, .back-button {
+      min-height: 47px; padding: 0 16px; border: 1px solid rgba(255,255,255,.15); border-radius: 14px;
+      color: #f8f8ff; background: rgba(255,255,255,.075); font-weight: 800; cursor: pointer; transition: transform .16s, background .16s, border-color .16s;
+    }
+    .menu-actions button:hover, .back-button:hover { transform: translateY(-1px); background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.3); }
+    .menu-actions .primary { color: #172039; border-color: #c8ff87; background: linear-gradient(180deg, #d4ff9d, #acfa68); box-shadow: 0 5px 16px rgba(157, 244, 91, .2); }
+    .menu-actions .primary:hover { background: #dfffba; }
+    .menu-actions .quiet { min-height: 40px; color: #aeb9d2; border-color: transparent; background: transparent; font-size: 12px; }
+    .costume-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px; margin: 17px 0 14px; }
+    .costume { padding: 12px 8px 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 16px; background: rgba(255,255,255,.045); color: #e9edfa; cursor: pointer; }
+    .costume.selected { border-color: var(--mint); background: rgba(184,255,115,.11); box-shadow: 0 0 0 1px rgba(184,255,115,.24) inset; }
+    .costume img { display: block; width: 78px; height: 78px; margin: 0 auto 5px; object-fit: contain; image-rendering: pixelated; }
+    .costume span { display: block; font-size: 12px; font-weight: 800; }
+    .costume small { display: block; margin-top: 3px; color: #aeb9d2; font-size: 10px; }
+    .about-copy { margin: 15px 0 20px; color: #c7cee0; font-size: 13px; line-height: 1.65; text-align: left; }
+    .about-copy strong { color: white; }
+    .menu-foot { margin-top: 15px; color: #8490ad; font-size: 10px; letter-spacing: .06em; }
+    .mobile-hint { display: none; }
+    @media (max-width: 760px) {
+      body { place-items: stretch center; }
+      .app { width: 100%; height: 100svh; min-height: 0; padding: max(9px, env(safe-area-inset-top)) 12px max(9px, env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; }
+      .side-note { display: none; }
+      .game-shell { width: auto; height: 100%; max-height: 100%; aspect-ratio: 420 / 740; border-radius: 22px; }
+      .pause-button { top: max(12px, env(safe-area-inset-top)); left: 12px; width: 44px; height: 44px; }
+      .overlay { padding: 17px; }
+      .menu-card { padding: 21px 20px 18px; }
+      .menu-bird { width: 78px; height: 78px; }
+      .menu-card h2 { font-size: 25px; }
+      .mobile-hint { display: block; position: absolute; bottom: 12px; width: 100%; text-align: center; color: rgba(255,255,255,.78); font-size: 10px; text-shadow: 0 2px 5px #567; pointer-events: none; }
+    }
+    @media (max-height: 610px) and (min-width: 761px) {
+      .app { padding-top: 10px; padding-bottom: 10px; gap: 20px; }
+      .game-shell { max-height: calc(100svh - 20px); }
+      .side-note h1 { font-size: 29px; }
+      .tip { margin-top: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="side-note">
+      <div class="brand">Mini oyun • 01</div>
+      <h1>Kanat<br>Peşinde</h1>
+      <p>Minik kuşunu uçur, boruların arasından süzül ve en iyi skorunu geç.</p>
+      <div class="tip"><b>Nasıl oynanır?</b><br>Dokun, tıkla ya da <b>Space</b> tuşuna bas. Her dokunuşta bir kanat çırpışı!</div>
+    </aside>
+
+    <section class="game-shell" aria-label="Kanat Peşinde oyunu">
+      <canvas id="game" width="420" height="740" aria-label="Flappy Bird oyun alanı"></canvas>
+      <button id="pauseButton" class="pause-button" type="button" aria-label="Menüyü aç" title="Menü (Esc)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM15 5h4v14h-4z"/></svg>
+      </button>
+      <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Oyun menüsü"></div>
+      <div class="mobile-hint">Uçmak için dokun</div>
+    </section>
+
+    <aside class="side-note right-note">
+      <div class="score-card"><span>En iyi skor</span><strong id="bestScore">0</strong></div>
+      <div class="bird-badge"><span>Uçuş arkadaşın<br><b id="birdName">Pofuduk</b></span><img id="badgeBird" src="img/1.png" alt="Seçili kuş"></div>
+    </aside>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const overlay = document.getElementById('overlay');
+      const pauseButton = document.getElementById('pauseButton');
+      const bestScoreEl = document.getElementById('bestScore');
+      const badgeBird = document.getElementById('badgeBird');
+      const birdNameEl = document.getElementById('birdName');
+      const W = canvas.width, H = canvas.height, GROUND = 82;
+      const birds = [
+        { src: 'img/1.png', name: 'Pofuduk', note: 'Klasik kuş' },
+        { src: 'img/2.png', name: 'Dino', note: 'Dino kostümü' }
+      ];
+      const images = birds.map((bird) => { const img = new Image(); img.src = bird.src; return img; });
+      const readStorage = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch (_) { return fallback; } };
+      const writeStorage = (key, value) => { try { localStorage.setItem(key, value); } catch (_) {} };
+      let selectedBird = Number(readStorage('kanatBird', '0'));
+      if (!Number.isInteger(selectedBird) || selectedBird < 0 || selectedBird >= birds.length) selectedBird = 0;
+      let best = Number(readStorage('kanatBest', '0')) || 0;
+      bestScoreEl.textContent = best;
+      let mode = 'ready'; // ready, running, paused, over
+      let page = 'main';
+      let score = 0;
+      let pipes = [];
+      let elapsed = 0;
+      let lastTime = 0;
+      let groundOffset = 0;
+      let particles = [];
+      const bird = { x: 108, y: 330, vy: 0, rotation: 0 };
+      const pipeConfig = { width: 76, gap: 184, speed: 158, every: 1.52, timer: 0 };
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+      const chosen = () => birds[selectedBird];
+
+      function syncBird() {
+        badgeBird.src = chosen().src;
+        birdNameEl.textContent = chosen().name;
+      }
+      syncBird();
+
+      function showPage(next) {
+        page = next;
+        overlay.hidden = false;
+        if (next === 'main') renderMainMenu();
+        if (next === 'costumes') renderCostumes();
+        if (next === 'about') renderAbout();
+      }
+      function hideMenu() { overlay.hidden = true; page = ''; }
+      function renderMainMenu() {
+        const resume = mode === 'paused';
+        const title = mode === 'over' ? 'Uçuş sona erdi' : resume ? 'Mola verdin' : 'Hazır mısın?';
+        const copy = mode === 'over' ? `Skorun <b>${score}</b>. Bir tur daha denemeye ne dersin?` : resume ? 'Kuşun seni bekliyor. Kaldığın yerden devam et.' : 'Dokun, kanat çırp ve boruların arasından geç!';
+        overlay.innerHTML = `<div class="menu-card">
+          <div class="menu-kicker">KANAT PEŞİNDE</div>
+          <img class="menu-bird" src="${chosen().src}" alt="${chosen().name}">
+          <h2>${title}</h2><p class="subcopy">${copy}</p>
+          <div class="menu-actions">
+            <button class="primary" data-action="start">${resume ? 'Devam Et' : mode === 'over' ? 'Yeniden Oyna' : 'Oyunu Başlat'}</button>
+            <button data-action="costumes">Kostümler</button>
+            <button data-action="about">Hakkında</button>
+          </div>
+          <div class="menu-foot">EN İYİ SKOR &nbsp; ${best}</div>
+        </div>`;
+      }
+      function renderCostumes() {
+        overlay.innerHTML = `<div class="menu-card">
+          <div class="menu-kicker">GÖRÜNÜMÜNÜ SEÇ</div><h2>Kostümler</h2>
+          <p class="subcopy">Uçuş arkadaşını seç. Seçimin sonraki turlarda da hatırlanır.</p>
+          <div class="costume-list">${birds.map((b, i) => `<button class="costume ${i === selectedBird ? 'selected' : ''}" data-bird="${i}" aria-pressed="${i === selectedBird}"><img src="${b.src}" alt=""><span>${b.name}</span><small>${b.note}</small></button>`).join('')}</div>
+          <button class="back-button" data-action="back">Menüye dön</button>
+        </div>`;
+      }
+      function renderAbout() {
+        overlay.innerHTML = `<div class="menu-card">
+          <div class="menu-kicker">OYUN REHBERİ</div><h2>Hakkında</h2>
+          <div class="about-copy"><strong>Nasıl oynanır?</strong><br>Dokunarak, ekrana tıklayarak ya da <strong>Space</strong> tuşuna basarak kuşunu kanat çırptır. Borulara ve yere çarpmadan ilerle; geçtiğin her boru bir puan kazandırır.<br><br><strong>Geliştirici:</strong><br>bozdoğanbey çelik</div>
+          <button class="back-button" data-action="back">Menüye dön</button>
+        </div>`;
+      }
+
+      overlay.addEventListener('click', (event) => {
+        const button = event.target.closest('button');
+        if (!button) return;
+        if (button.dataset.action === 'start') startGame();
+        else if (button.dataset.action === 'costumes') showPage('costumes');
+        else if (button.dataset.action === 'about') showPage('about');
+        else if (button.dataset.action === 'back') showPage('main');
+        else if (button.dataset.bird !== undefined) {
+          selectedBird = Number(button.dataset.bird);
+          writeStorage('kanatBird', String(selectedBird));
+          syncBird();
+          renderCostumes();
+        }
+      });
+
+      function startGame() {
+        if (mode === 'paused') { mode = 'running'; hideMenu(); lastTime = performance.now(); return; }
+        score = 0; pipes = []; particles = []; elapsed = 0; pipeConfig.timer = .78;
+        bird.y = H * .43; bird.vy = 0; bird.rotation = 0; mode = 'running';
+        hideMenu(); flap(); lastTime = performance.now();
+      }
+      function openMenu() {
+        if (mode === 'running') mode = 'paused';
+        if (mode === 'ready') mode = 'ready';
+        showPage('main');
+      }
+      function flap() {
+        if (mode === 'running') {
+          bird.vy = -405;
+          burst(bird.x - 14, bird.y + 8, '#f5d76e', 4);
+        }
+      }
+      function burst(x, y, color, count) {
+        for (let i = 0; i < count; i++) particles.push({ x, y, vx: -35 - Math.random() * 85, vy: (Math.random() - .5) * 100, life: .32 + Math.random() * .2, max: .52, color, size: 2 + Math.random() * 3 });
+      }
+      pauseButton.addEventListener('click', openMenu);
+      canvas.addEventListener('pointerdown', (event) => { event.preventDefault(); if (mode === 'running') flap(); });
+      window.addEventListener('keydown', (event) => {
+        if (event.code === 'Escape') {
+          event.preventDefault();
+          if (page === 'costumes' || page === 'about') showPage('main');
+          else if (overlay.hidden) openMenu();
+          else if (mode === 'paused') { mode = 'running'; hideMenu(); lastTime = performance.now(); }
+          return;
+        }
+        if (event.code === 'Space' || event.code === 'ArrowUp') {
+          event.preventDefault();
+          if (!overlay.hidden) { if (page === 'main') startGame(); }
+          else flap();
+        }
+      });
+
+      function spawnPipe() {
+        const margin = 112;
+        const gapY = margin + Math.random() * (H - GROUND - margin * 2);
+        pipes.push({ x: W + 12, gapY, scored: false });
+      }
+      function endGame() {
+        if (mode !== 'running') return;
+        mode = 'over';
+        burst(bird.x, bird.y, '#fff2b0', 12);
+        if (score > best) { best = score; writeStorage('kanatBest', String(best)); bestScoreEl.textContent = best; }
+        setTimeout(() => { if (mode === 'over' && overlay.hidden) showPage('main'); }, 650);
+      }
+      function update(dt) {
+        elapsed += dt;
+        groundOffset = (groundOffset + pipeConfig.speed * dt) % 40;
+        if (mode === 'running') {
+          bird.vy += 1120 * dt;
+          bird.y += bird.vy * dt;
+          bird.rotation = clamp(bird.vy / 650, -.48, 1.25);
+          pipeConfig.timer -= dt;
+          if (pipeConfig.timer <= 0) { spawnPipe(); pipeConfig.timer = pipeConfig.every; }
+          for (const pipe of pipes) {
+            pipe.x -= pipeConfig.speed * dt;
+            if (!pipe.scored && pipe.x + pipeConfig.width < bird.x) { pipe.scored = true; score++; }
+            const withinX = bird.x + 18 > pipe.x && bird.x - 17 < pipe.x + pipeConfig.width;
+            if (withinX && (bird.y - 15 < pipe.gapY - pipeConfig.gap / 2 || bird.y + 15 > pipe.gapY + pipeConfig.gap / 2)) endGame();
+          }
+          pipes = pipes.filter(pipe => pipe.x + pipeConfig.width > -10);
+          if (bird.y < 18 || bird.y + 17 > H - GROUND) endGame();
+        } else if (mode === 'ready') {
+          bird.y = H * .43 + Math.sin(elapsed * 2.4) * 8;
+          bird.rotation = Math.sin(elapsed * 2.4) * .035;
+        }
+        particles = particles.filter(p => p.life > 0);
+        for (const p of particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 150 * dt; }
+      }
+
+      function roundedRect(x, y, w, h, r) {
+        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+      }
+      function drawBackground() {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, '#79cce7'); sky.addColorStop(.56, '#b6e6df'); sky.addColorStop(1, '#f4d99c');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        const sunGlow = ctx.createRadialGradient(320, 125, 10, 320, 125, 120);
+        sunGlow.addColorStop(0, 'rgba(255,250,207,.78)'); sunGlow.addColorStop(1, 'rgba(255,250,207,0)');
+        ctx.fillStyle = sunGlow; ctx.fillRect(190, 0, 230, 250);
+        ctx.fillStyle = '#fff1ad'; ctx.beginPath(); ctx.arc(320, 125, 38, 0, Math.PI * 2); ctx.fill();
+        // soft drifting clouds
+        for (let i = 0; i < 4; i++) {
+          const cx = ((i * 143 - elapsed * 11) % (W + 120) + W + 120) % (W + 120) - 60;
+          const cy = 115 + (i % 3) * 86;
+          ctx.fillStyle = 'rgba(255,255,255,.46)';
+          ctx.beginPath(); ctx.ellipse(cx, cy, 34, 10, 0, 0, Math.PI * 2); ctx.ellipse(cx + 18, cy - 7, 20, 15, 0, 0, Math.PI * 2); ctx.ellipse(cx - 13, cy - 4, 17, 12, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        // distant hills
+        ctx.fillStyle = '#a2d4b0'; ctx.beginPath(); ctx.moveTo(0, H - GROUND - 58);
+        for (let x = 0; x <= W; x += 4) ctx.lineTo(x, H - GROUND - 48 - Math.sin((x + elapsed * 15) / 70) * 17 - Math.sin(x / 27) * 5);
+        ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+        ctx.fillStyle = '#80bf9b'; ctx.beginPath(); ctx.moveTo(0, H - GROUND - 27);
+        for (let x = 0; x <= W; x += 4) ctx.lineTo(x, H - GROUND - 26 - Math.sin((x - elapsed * 23) / 52) * 14 - Math.sin(x / 30) * 5);
+        ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+      }
+      function drawPipe(pipe) {
+        const x = Math.round(pipe.x), pw = pipeConfig.width, gapTop = pipe.gapY - pipeConfig.gap / 2, gapBottom = pipe.gapY + pipeConfig.gap / 2;
+        const drawBody = (y, h, top) => {
+          if (h <= 0) return;
+          const grad = ctx.createLinearGradient(x, 0, x + pw, 0);
+          grad.addColorStop(0, '#338b69'); grad.addColorStop(.17, '#77d27c'); grad.addColorStop(.48, '#a9ec83'); grad.addColorStop(.76, '#70c972'); grad.addColorStop(1, '#327e64');
+          ctx.fillStyle = grad; ctx.fillRect(x + 7, y, pw - 14, h);
+          ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x + 13, y, 7, h);
+          ctx.fillStyle = 'rgba(17,88,75,.25)'; ctx.fillRect(x + pw - 20, y, 8, h);
+          ctx.fillStyle = '#55aa70'; ctx.fillRect(x + 7, top ? y + h - 7 : y, pw - 14, 7);
+          const capY = top ? y + h - 23 : y;
+          ctx.fillStyle = '#60bd76'; roundedRect(x, capY, pw, 23, 6);
+          ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x + 8, capY + 4, 8, 14);
+          ctx.fillStyle = 'rgba(24,92,72,.22)'; ctx.fillRect(x + pw - 13, capY + 4, 6, 14);
+          ctx.strokeStyle = 'rgba(28,99,76,.32)'; ctx.lineWidth = 2; ctx.strokeRect(x + .5, capY + .5, pw - 1, 22);
+        };
+        drawBody(0, gapTop, true); drawBody(gapBottom, H - GROUND - gapBottom, false);
+      }
+      function drawGround() {
+        ctx.fillStyle = '#edd17e'; ctx.fillRect(0, H - GROUND, W, GROUND);
+        ctx.fillStyle = '#78c77e'; ctx.fillRect(0, H - GROUND, W, 13);
+        ctx.fillStyle = '#b7ed83'; ctx.fillRect(0, H - GROUND, W, 4);
+        ctx.fillStyle = 'rgba(119,94,54,.13)';
+        for (let x = -groundOffset; x < W + 40; x += 40) {
+          ctx.fillRect(x, H - GROUND + 24, 18, 4); ctx.fillRect(x + 18, H - GROUND + 49, 15, 4);
+        }
+        ctx.fillStyle = 'rgba(255,255,255,.19)'; ctx.fillRect(0, H - GROUND + 15, W, 2);
+      }
+      function drawBird() {
+        ctx.save(); ctx.translate(bird.x, bird.y); ctx.rotate(bird.rotation);
+        const img = images[selectedBird];
+        if (img.complete && img.naturalWidth) {
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(img, -31, -31, 62, 62);
+        } else {
+          ctx.fillStyle = '#ffe475'; ctx.beginPath(); ctx.ellipse(0, 0, 24, 18, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ef7d4d'; ctx.beginPath(); ctx.moveTo(17, 0); ctx.lineTo(34, 6); ctx.lineTo(17, 10); ctx.fill();
+        }
+        ctx.restore();
+      }
+      function draw() {
+        drawBackground();
+        pipes.forEach(drawPipe);
+        drawGround();
+        for (const p of particles) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }
+        ctx.globalAlpha = 1;
+        drawBird();
+        if (mode === 'running') {
+          ctx.textAlign = 'center'; ctx.font = '900 54px ui-rounded, system-ui, sans-serif'; ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(47,91,105,.28)'; ctx.strokeText(score, W / 2, 78); ctx.fillStyle = '#fff'; ctx.fillText(score, W / 2, 78);
+        }
+        if (mode === 'ready' && overlay.hidden) {
+          ctx.fillStyle = 'rgba(38,70,89,.72)'; ctx.textAlign = 'center'; ctx.font = '800 15px system-ui'; ctx.fillText('UÇMAK İÇİN DOKUN', W / 2, H * .65);
+        }
+      }
+      function frame(time) {
+        const dt = Math.min((time - (lastTime || time)) / 1000, .035);
+        lastTime = time; update(dt); draw(); requestAnimationFrame(frame);
+      }
+      showPage('main');
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
