@@ -255,9 +255,68 @@ html = r'''<!DOCTYPE html>
   </footer>
 
   <button class="back-top" id="backTop" type="button" aria-label="Sayfanın başına dön">↑</button>
+
+  <!-- Ziyaretçi videosu: Bootstrap modal -->
+  <div class="modal fade" id="introVideoModal" tabindex="-1"
+       aria-labelledby="introVideoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content bg-dark border border-secondary">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title text-white" id="introVideoModalLabel">Bozdoğan | Tanıtım Videosu</h5>
+          <button type="button" class="btn-close btn-close-white"
+                  data-bs-dismiss="modal" aria-label="Kapat"></button>
+        </div>
+        <div class="modal-body p-2">
+          <video id="introVideo" class="w-100 rounded" controls autoplay muted playsinline preload="auto">
+            <source src="video.mp4" type="video/mp4">
+            Tarayıcınız video etiketini desteklemiyor.
+          </video>
+          <p class="text-white-50 small text-center mt-2 mb-0">
+            Sesi açmak için video oynatıcısındaki ses düğmesini kullanabilirsin.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bootstrap JS: mobil menü için internet bağlantısı gerekir -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // Sayfa açıldıktan 3 saniye sonra tanıtım videosunu göster.
+    const introVideoModalElement = document.getElementById('introVideoModal');
+    const introVideoElement = document.getElementById('introVideo');
+
+    if (introVideoModalElement && introVideoElement) {
+      const introVideoModal = new bootstrap.Modal(introVideoModalElement, {
+        backdrop: true,
+        keyboard: true
+      });
+
+      window.setTimeout(() => {
+        introVideoModal.show();
+
+        // Otomatik oynatma, tarayıcı politikaları nedeniyle sessiz başlatılır.
+        const playPromise = introVideoElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Otomatik oynatma engellenirse kullanıcı video üzerindeki
+            // oynat düğmesine basarak videoyu başlatabilir.
+          });
+        }
+      }, 3000);
+
+      // Video tamamlandığında modalı kapat ve oynatma konumunu sıfırla.
+      introVideoElement.addEventListener('ended', () => {
+        introVideoModal.hide();
+      });
+
+      // Modal elle kapatılırsa video arka planda çalışmaya devam etmesin.
+      introVideoModalElement.addEventListener('hidden.bs.modal', () => {
+        introVideoElement.pause();
+        introVideoElement.currentTime = 0;
+      });
+    }
+
     // Footer yılını otomatik güncelle.
     document.getElementById('year').textContent = new Date().getFullYear();
 
